@@ -1,0 +1,8 @@
+# React / Vite
+smartstock-frontend/node_modules/
+smartstock-frontend/dist/
+
+# Environment files
+smartstock-frontend/.env
+smartstock-frontend/.env.*
+!smartstock-frontend/.env.example
