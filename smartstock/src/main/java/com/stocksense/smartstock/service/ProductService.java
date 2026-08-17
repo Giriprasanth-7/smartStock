@@ -90,7 +90,7 @@ public class ProductService {
 
                 /*
                  * Preserve supplier relationship when the updated
-                 * product already contains a supplier.
+                 * product contains a supplier.
                  */
                 if (updatedProduct.getSupplier() != null
                                 && updatedProduct.getSupplier().getId() != null) {
@@ -211,7 +211,7 @@ public class ProductService {
                                 ? product.getSafetyStock()
                                 : 0;
 
-                int leadTimeDays = product.getLeadTimeDays() != null
+                int productLeadTimeDays = product.getLeadTimeDays() != null
                                 ? product.getLeadTimeDays()
                                 : 0;
 
@@ -224,6 +224,38 @@ public class ProductService {
                                 : 0;
 
                 // =====================================================
+                // SUPPLIER INFORMATION
+                // =====================================================
+
+                Supplier supplier = product.getSupplier();
+
+                boolean supplierAvailable = supplier != null
+                                && Boolean.TRUE.equals(supplier.getActive());
+
+                Integer supplierLeadTimeDays = supplier != null
+                                ? supplier.getLeadTimeDays()
+                                : null;
+
+                /*
+                 * Effective lead time:
+                 *
+                 * 1. Use active supplier lead time when available.
+                 * 2. Otherwise fall back to product lead time.
+                 *
+                 * This makes replenishment genuinely supplier-aware
+                 * while still allowing products without an active
+                 * supplier to use their own configured lead time.
+                 */
+                int effectiveLeadTimeDays = productLeadTimeDays;
+
+                if (supplierAvailable
+                                && supplierLeadTimeDays != null
+                                && supplierLeadTimeDays >= 0) {
+
+                        effectiveLeadTimeDays = supplierLeadTimeDays;
+                }
+
+                // =====================================================
                 // DEMAND ANALYSIS
                 // =====================================================
 
@@ -234,13 +266,15 @@ public class ProductService {
                 // LEAD TIME DEMAND
                 // =====================================================
 
-                double leadTimeDemand = averageDailyDemand * leadTimeDays;
+                double leadTimeDemand = averageDailyDemand
+                                * effectiveLeadTimeDays;
 
                 // =====================================================
                 // DEMAND-BASED REORDER POINT
                 // =====================================================
 
-                double demandBasedReorderPoint = leadTimeDemand + safetyStock;
+                double demandBasedReorderPoint = leadTimeDemand
+                                + safetyStock;
 
                 // =====================================================
                 // EFFECTIVE REORDER POINT
@@ -254,7 +288,15 @@ public class ProductService {
                 // TARGET STOCK
                 // =====================================================
 
-                int targetStock = reorderLevel + safetyStock;
+                /*
+                 * Target stock is based on the effective reorder point
+                 * rather than only the manually configured reorder level.
+                 *
+                 * This ensures that demand and lead-time intelligence
+                 * actually influences the replenishment target.
+                 */
+                int targetStock = (int) Math.ceil(
+                                effectiveReorderPoint + safetyStock);
 
                 if (maximumStockLevel > 0) {
 
@@ -358,7 +400,15 @@ public class ProductService {
 
                 result.put(
                                 "leadTimeDays",
-                                leadTimeDays);
+                                effectiveLeadTimeDays);
+
+                result.put(
+                                "productLeadTimeDays",
+                                productLeadTimeDays);
+
+                result.put(
+                                "effectiveLeadTimeDays",
+                                effectiveLeadTimeDays);
 
                 result.put(
                                 "minimumOrderQuantity",
@@ -372,23 +422,24 @@ public class ProductService {
                 // SUPPLIER INFORMATION
                 // =====================================================
 
-                if (product.getSupplier() != null) {
+                if (supplier != null) {
 
                         result.put(
                                         "supplierId",
-                                        product.getSupplier().getId());
+                                        supplier.getId());
 
                         result.put(
                                         "supplierName",
-                                        product.getSupplier().getName());
+                                        supplier.getName());
 
                         result.put(
                                         "supplierLeadTimeDays",
-                                        product.getSupplier().getLeadTimeDays());
+                                        supplier.getLeadTimeDays());
 
                         result.put(
                                         "supplierActive",
-                                        product.getSupplier().getActive());
+                                        supplier.getActive());
+
                 } else {
 
                         result.put(
