@@ -22,7 +22,7 @@ public class RecommendationController {
     }
 
     // =========================================================
-    // GET SMART RECOMMENDATION
+    // GET SMART RECOMMENDATION FOR A PRODUCT
     // =========================================================
 
     @GetMapping("/product/{productId}")
@@ -31,8 +31,7 @@ public class RecommendationController {
 
         try {
 
-            Map<String, Object> recommendation = recommendationService
-                    .getRecommendation(productId);
+            Map<String, Object> recommendation = recommendationService.getRecommendation(productId);
 
             return ResponseEntity.ok(recommendation);
 
@@ -44,5 +43,16 @@ public class RecommendationController {
                             "error",
                             exception.getMessage()));
         }
+    }
+
+    // =========================================================
+    // GET INVENTORY INTELLIGENCE SUMMARY
+    // =========================================================
+
+    @GetMapping("/intelligence/summary")
+    public ResponseEntity<Map<String, Object>> getInventoryIntelligenceSummary() {
+
+        return ResponseEntity.ok(
+                recommendationService.getInventoryIntelligenceSummary());
     }
 }

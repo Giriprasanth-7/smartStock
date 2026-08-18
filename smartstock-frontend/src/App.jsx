@@ -4,19 +4,21 @@ const API_BASE = "http://localhost:8080/api";
 
 function App() {
   console.log("SMARTSTOCK APP LOADED");
+
   // ============================================================
   // MAIN STATE
   // ============================================================
 
-  const [activeSection, setActiveSection] = useState("dashboard");
+  const [activeSection, setActiveSection] =
+    useState("dashboard");
 
   const [products, setProducts] = useState([]);
   const [movements, setMovements] = useState([]);
   const [alerts, setAlerts] = useState([]);
-  const [recommendations, setRecommendations] = useState([]);
+  const [recommendations, setRecommendations] =
+    useState([]);
   const [forecast, setForecast] = useState(null);
 
-  // PHASE 3 - SUPPLIERS
   const [suppliers, setSuppliers] = useState([]);
 
   const [loading, setLoading] = useState(false);
@@ -43,10 +45,6 @@ function App() {
 
   const [productForm, setProductForm] =
     useState(emptyProductForm);
-
-  // ============================================================
-  // EDIT PRODUCT STATE
-  // ============================================================
 
   const [editingProductId, setEditingProductId] =
     useState(null);
@@ -94,7 +92,9 @@ function App() {
   // ============================================================
 
   async function fetchProducts() {
-    const response = await fetch(`${API_BASE}/products`);
+    const response = await fetch(
+      `${API_BASE}/products`
+    );
 
     if (!response.ok) {
       throw new Error("Failed to load products");
@@ -113,7 +113,9 @@ function App() {
     );
 
     if (!response.ok) {
-      throw new Error("Failed to load stock movements");
+      throw new Error(
+        "Failed to load stock movements"
+      );
     }
 
     return response.json();
@@ -129,7 +131,9 @@ function App() {
     );
 
     if (!response.ok) {
-      throw new Error("Failed to load inventory alerts");
+      throw new Error(
+        "Failed to load inventory alerts"
+      );
     }
 
     return response.json();
@@ -163,7 +167,9 @@ function App() {
     );
 
     if (!response.ok) {
-      throw new Error("Failed to load suppliers");
+      throw new Error(
+        "Failed to load suppliers"
+      );
     }
 
     return response.json();
@@ -299,11 +305,6 @@ function App() {
         product.minimumOrderQuantity ?? "",
       maximumStockLevel:
         product.maximumStockLevel ?? "",
-
-      // ======================================================
-      // SUPPLIER
-      // ======================================================
-
       supplierId:
         product.supplier?.id
           ? String(product.supplier.id)
@@ -331,10 +332,6 @@ function App() {
 
     try {
       setLoading(true);
-
-      // ========================================================
-      // BUILD PRODUCT OBJECT
-      // ========================================================
 
       const product = {
         name: productForm.name,
@@ -367,13 +364,11 @@ function App() {
           productForm.maximumStockLevel
         ),
 
-        // ======================================================
-        // SUPPLIER RELATIONSHIP
-        // ======================================================
-
         supplier: productForm.supplierId
           ? {
-            id: Number(productForm.supplierId),
+            id: Number(
+              productForm.supplierId
+            ),
           }
           : null,
       };
@@ -388,17 +383,20 @@ function App() {
           {
             method: "PUT",
             headers: {
-              "Content-Type": "application/json",
+              "Content-Type":
+                "application/json",
             },
             body: JSON.stringify(product),
           }
         );
 
         if (!response.ok) {
-          const errorText = await response.text();
+          const errorText =
+            await response.text();
 
           throw new Error(
-            errorText || "Failed to update product"
+            errorText ||
+            "Failed to update product"
           );
         }
 
@@ -422,17 +420,20 @@ function App() {
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
           body: JSON.stringify(product),
         }
       );
 
       if (!response.ok) {
-        const errorText = await response.text();
+        const errorText =
+          await response.text();
 
         throw new Error(
-          errorText || "Failed to add product"
+          errorText ||
+          "Failed to add product"
         );
       }
 
@@ -511,10 +512,101 @@ function App() {
   function handleMovementChange(event) {
     const { name, value } = event.target;
 
-    setMovementForm((previous) => ({
-      ...previous,
-      [name]: value,
-    }));
+    setMovementForm((previous) => {
+      let updatedValue = value;
+
+      // --------------------------------------------------------
+      // SALE QUANTITY LIMIT
+      // --------------------------------------------------------
+
+      if (name === "quantity") {
+        const selectedProduct =
+          products.find(
+            (product) =>
+              Number(product.id) ===
+              Number(previous.productId)
+          );
+
+        if (
+          selectedProduct &&
+          previous.movementType === "SALE"
+        ) {
+          const availableStock =
+            Number(
+              selectedProduct.quantity || 0
+            );
+
+          const enteredQuantity =
+            Number(value);
+
+          if (
+            Number.isFinite(
+              enteredQuantity
+            ) &&
+            enteredQuantity >
+            availableStock
+          ) {
+            updatedValue =
+              String(availableStock);
+
+            setMessage(
+              `Maximum sale quantity for ${selectedProduct.name} is ${availableStock} units.`
+            );
+          }
+        }
+      }
+
+      return {
+        ...previous,
+        [name]: updatedValue,
+      };
+    });
+
+    // Clear validation message when
+    // changing product/type.
+    if (
+      name === "productId" ||
+      name === "movementType"
+    ) {
+      setMessage("");
+    }
+  }
+
+  // ============================================================
+  // GET SELECTED MOVEMENT PRODUCT
+  // ============================================================
+
+  function getSelectedMovementProduct() {
+    if (!movementForm.productId) {
+      return null;
+    }
+
+    return (
+      products.find(
+        (product) =>
+          Number(product.id) ===
+          Number(
+            movementForm.productId
+          )
+      ) || null
+    );
+  }
+
+  // ============================================================
+  // GET AVAILABLE SALE STOCK
+  // ============================================================
+
+  function getAvailableSaleStock() {
+    const selectedProduct =
+      getSelectedMovementProduct();
+
+    if (!selectedProduct) {
+      return null;
+    }
+
+    return Number(
+      selectedProduct.quantity || 0
+    );
   }
 
   // ============================================================
@@ -535,6 +627,58 @@ function App() {
       return;
     }
 
+    const selectedProduct =
+      getSelectedMovementProduct();
+
+    if (!selectedProduct) {
+      setMessage(
+        "Selected product could not be found."
+      );
+
+      return;
+    }
+
+    const quantity = Number(
+      movementForm.quantity
+    );
+
+    // ==========================================================
+    // QUANTITY VALIDATION
+    // ==========================================================
+
+    if (
+      !Number.isInteger(quantity) ||
+      quantity <= 0
+    ) {
+      setMessage(
+        "Quantity must be a positive whole number."
+      );
+
+      return;
+    }
+
+    // ==========================================================
+    // SALE STOCK VALIDATION
+    // ==========================================================
+
+    if (
+      movementForm.movementType ===
+      "SALE"
+    ) {
+      const currentStock =
+        Number(
+          selectedProduct.quantity || 0
+        );
+
+      if (quantity > currentStock) {
+        setMessage(
+          `Cannot record SALE of ${quantity} units. ${selectedProduct.name} currently has only ${currentStock} units in stock.`
+        );
+
+        return;
+      }
+    }
+
     try {
       setLoading(true);
 
@@ -542,17 +686,11 @@ function App() {
         productId: Number(
           movementForm.productId
         ),
-
         movementType:
           movementForm.movementType,
-
-        quantity: Number(
-          movementForm.quantity
-        ),
-
+        quantity,
         movementDate:
           new Date().toISOString(),
-
         note: movementForm.note,
       };
 
@@ -561,9 +699,12 @@ function App() {
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
-          body: JSON.stringify(movement),
+          body: JSON.stringify(
+            movement
+          ),
         }
       );
 
@@ -571,9 +712,29 @@ function App() {
         const errorText =
           await response.text();
 
+        let errorMessage =
+          "Failed to create stock movement.";
+
+        try {
+          const errorData =
+            JSON.parse(errorText);
+
+          if (errorData.message) {
+            errorMessage =
+              errorData.message;
+          } else if (errorData.error) {
+            errorMessage =
+              errorData.error;
+          }
+        } catch {
+          if (errorText) {
+            errorMessage =
+              errorText;
+          }
+        }
+
         throw new Error(
-          errorText ||
-          "Failed to create movement"
+          errorMessage
         );
       }
 
@@ -618,7 +779,6 @@ function App() {
 
     setSupplierForm((previous) => ({
       ...previous,
-
       [name]:
         type === "checkbox"
           ? checked
@@ -640,23 +800,22 @@ function App() {
   // ============================================================
 
   function handleEditSupplier(supplier) {
-    setEditingSupplierId(supplier.id);
+    setEditingSupplierId(
+      supplier.id
+    );
 
     setSupplierForm({
       name: supplier.name ?? "",
-
       contactPerson:
         supplier.contactPerson ?? "",
-
-      email: supplier.email ?? "",
-
-      phone: supplier.phone ?? "",
-
-      address: supplier.address ?? "",
-
+      email:
+        supplier.email ?? "",
+      phone:
+        supplier.phone ?? "",
+      address:
+        supplier.address ?? "",
       leadTimeDays:
         supplier.leadTimeDays ?? "",
-
       active:
         supplier.active ?? true,
     });
@@ -685,26 +844,17 @@ function App() {
 
       const supplier = {
         name: supplierForm.name,
-
         contactPerson:
           supplierForm.contactPerson,
-
         email: supplierForm.email,
-
         phone: supplierForm.phone,
-
         address: supplierForm.address,
-
         leadTimeDays: Number(
           supplierForm.leadTimeDays
         ),
-
-        active: supplierForm.active,
+        active:
+          supplierForm.active,
       };
-
-      // ========================================================
-      // UPDATE SUPPLIER
-      // ========================================================
 
       if (editingSupplierId !== null) {
         const response = await fetch(
@@ -712,9 +862,12 @@ function App() {
           {
             method: "PUT",
             headers: {
-              "Content-Type": "application/json",
+              "Content-Type":
+                "application/json",
             },
-            body: JSON.stringify(supplier),
+            body: JSON.stringify(
+              supplier
+            ),
           }
         );
 
@@ -739,18 +892,17 @@ function App() {
         return;
       }
 
-      // ========================================================
-      // ADD SUPPLIER
-      // ========================================================
-
       const response = await fetch(
         `${API_BASE}/suppliers`,
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
-          body: JSON.stringify(supplier),
+          body: JSON.stringify(
+            supplier
+          ),
         }
       );
 
@@ -841,7 +993,9 @@ function App() {
   // LOAD DEMAND FORECAST
   // ============================================================
 
-  async function handleForecastChange(productId) {
+  async function handleForecastChange(
+    productId
+  ) {
     await fetchForecast(productId);
   }
 
@@ -849,7 +1003,9 @@ function App() {
   // LOAD SMART RECOMMENDATION
   // ============================================================
 
-  async function loadRecommendation(productId) {
+  async function loadRecommendation(
+    productId
+  ) {
     try {
       const response = await fetch(
         `${API_BASE}/recommendations/product/${productId}`
@@ -864,11 +1020,15 @@ function App() {
       const data =
         await response.json();
 
-      setSelectedRecommendation(data);
+      setSelectedRecommendation(
+        data
+      );
     } catch (error) {
       console.error(error);
 
-      setSelectedRecommendation(null);
+      setSelectedRecommendation(
+        null
+      );
 
       setMessage(
         "Unable to load recommendation."
@@ -888,7 +1048,9 @@ function App() {
       (sum, product) =>
         sum +
         (product.quantity
-          ? Number(product.quantity)
+          ? Number(
+            product.quantity
+          )
           : 0),
       0
     );
@@ -903,7 +1065,9 @@ function App() {
   const outOfStockCount =
     products.filter(
       (product) =>
-        Number(product.quantity || 0) === 0
+        Number(
+          product.quantity || 0
+        ) === 0
     ).length;
 
   // ============================================================
@@ -933,7 +1097,9 @@ function App() {
   // STATUS COLORS
   // ============================================================
 
-  function getSeverityClass(severity) {
+  function getSeverityClass(
+    severity
+  ) {
     if (severity === "CRITICAL") {
       return "critical";
     }
@@ -966,12 +1132,8 @@ function App() {
     }
 
     if (
-      status.includes(
-        "MONITOR"
-      ) ||
-      status.includes(
-        "APPROACHING"
-      )
+      status.includes("MONITOR") ||
+      status.includes("APPROACHING")
     ) {
       return "warning";
     }
@@ -987,31 +1149,15 @@ function App() {
     const items = [
       ["dashboard", "📊", "Dashboard"],
       ["products", "📦", "Products"],
-      [
-        "movements",
-        "🔄",
-        "Stock Movements",
-      ],
-      [
-        "alerts",
-        "⚠️",
-        "Inventory Alerts",
-      ],
-      [
-        "analytics",
-        "📈",
-        "Demand Analytics",
-      ],
+      ["movements", "🔄", "Stock Movements"],
+      ["alerts", "⚠️", "Inventory Alerts"],
+      ["analytics", "📈", "Demand Analytics"],
       [
         "recommendations",
         "🧠",
         "Smart Recommendations",
       ],
-      [
-        "suppliers",
-        "🏢",
-        "Suppliers",
-      ],
+      ["suppliers", "🏢", "Suppliers"],
     ];
 
     return (
@@ -1026,7 +1172,9 @@ function App() {
                   : "nav-button"
               }
               onClick={() =>
-                setActiveSection(key)
+                setActiveSection(
+                  key
+                )
               }
             >
               <span className="nav-icon">
@@ -1190,7 +1338,8 @@ function App() {
               </span>
             </div>
 
-            {products.length === 0 ? (
+            {products.length ===
+              0 ? (
               <p>
                 No products available.
               </p>
@@ -1198,89 +1347,86 @@ function App() {
               <div className="health-list">
                 {products
                   .slice(0, 8)
-                  .map(
-                    (product) => {
-                      const quantity =
-                        Number(
-                          product.quantity ||
-                          0
-                        );
-
-                      const reorderLevel =
-                        Number(
-                          product.reorderLevel ||
-                          0
-                        );
-
-                      let status =
-                        "HEALTHY";
-
-                      if (
-                        quantity ===
+                  .map((product) => {
+                    const quantity =
+                      Number(
+                        product.quantity ||
                         0
-                      ) {
-                        status =
-                          "OUT OF STOCK";
-                      } else if (
-                        quantity <=
-                        reorderLevel
-                      ) {
-                        status =
-                          "REORDER REQUIRED";
-                      } else if (
-                        quantity <=
-                        reorderLevel +
-                        Number(
-                          product.safetyStock ||
-                          0
-                        )
-                      ) {
-                        status =
-                          "MONITOR";
-                      }
+                      );
 
-                      return (
-                        <div
-                          className="health-row"
-                          key={
-                            product.id
-                          }
-                        >
-                          <div className="health-product">
-                            <div className="health-product-icon">
-                              📦
-                            </div>
+                    const reorderLevel =
+                      Number(
+                        product.reorderLevel ||
+                        0
+                      );
 
-                            <div>
-                              <strong>
-                                {
-                                  product.name
-                                }
-                              </strong>
+                    let status =
+                      "HEALTHY";
 
-                              <small>
-                                {
-                                  product.sku
-                                }{" "}
-                                • Stock:{" "}
-                                {
-                                  quantity
-                                }
-                              </small>
-                            </div>
+                    if (
+                      quantity === 0
+                    ) {
+                      status =
+                        "OUT OF STOCK";
+                    } else if (
+                      quantity <=
+                      reorderLevel
+                    ) {
+                      status =
+                        "REORDER REQUIRED";
+                    } else if (
+                      quantity <=
+                      reorderLevel +
+                      Number(
+                        product.safetyStock ||
+                        0
+                      )
+                    ) {
+                      status =
+                        "MONITOR";
+                    }
+
+                    return (
+                      <div
+                        className="health-row"
+                        key={
+                          product.id
+                        }
+                      >
+                        <div className="health-product">
+                          <div className="health-product-icon">
+                            📦
                           </div>
 
-                          <span
-                            className={getStatusClass(
-                              status
-                            )}
-                          >
-                            {status}
-                          </span>
+                          <div>
+                            <strong>
+                              {
+                                product.name
+                              }
+                            </strong>
+
+                            <small>
+                              {
+                                product.sku
+                              }{" "}
+                              • Stock:{" "}
+                              {
+                                quantity
+                              }
+                            </small>
+                          </div>
                         </div>
-                      );
-                    }
-                  )}
+
+                        <span
+                          className={getStatusClass(
+                            status
+                          )}
+                        >
+                          {status}
+                        </span>
+                      </div>
+                    );
+                  })}
               </div>
             )}
           </div>
@@ -1398,7 +1544,8 @@ function App() {
             </span>
           </div>
 
-          {movements.length === 0 ? (
+          {movements.length ===
+            0 ? (
             <p>
               No stock movements
               found.
@@ -1538,6 +1685,7 @@ function App() {
                 className="refresh-button"
                 onClick={() => {
                   resetProductForm();
+
                   setMessage(
                     "Edit cancelled."
                   );
@@ -1702,10 +1850,6 @@ function App() {
               required
             />
 
-            {/* ==================================================
-                SUPPLIER SELECTION
-               ================================================== */}
-
             <select
               name="supplierId"
               value={
@@ -1756,7 +1900,8 @@ function App() {
                   style={{
                     gridColumn:
                       "1 / -1",
-                    color: "#dc2626",
+                    color:
+                      "#dc2626",
                   }}
                 >
                   No active suppliers
@@ -1781,6 +1926,7 @@ function App() {
                 className="refresh-button"
                 onClick={() => {
                   resetProductForm();
+
                   setMessage(
                     "Edit cancelled."
                   );
@@ -1797,7 +1943,8 @@ function App() {
             All Products
           </h3>
 
-          {products.length === 0 ? (
+          {products.length ===
+            0 ? (
             <p>
               No products found.
             </p>
@@ -1872,10 +2019,6 @@ function App() {
                             product.quantity
                           }
                         </td>
-
-                        {/* ====================================
-                            SUPPLIER
-                           ==================================== */}
 
                         <td>
                           {product.supplier ? (
@@ -1980,6 +2123,27 @@ function App() {
   // ============================================================
 
   function renderMovements() {
+    const selectedProduct =
+      getSelectedMovementProduct();
+
+    const availableSaleStock =
+      getAvailableSaleStock();
+
+    const enteredQuantity =
+      Number(
+        movementForm.quantity || 0
+      );
+
+    const saleExceedsStock =
+      movementForm.movementType ===
+      "SALE" &&
+      selectedProduct &&
+      enteredQuantity >
+      Number(
+        selectedProduct.quantity ||
+        0
+      );
+
     return (
       <div className="section">
         <div className="section-header">
@@ -2043,6 +2207,10 @@ function App() {
                     —{" "}
                     {
                       product.sku
+                    }{" "}
+                    — Stock:{" "}
+                    {
+                      product.quantity
                     }
                   </option>
                 )
@@ -2071,6 +2239,14 @@ function App() {
               name="quantity"
               type="number"
               min="1"
+              max={
+                movementForm.movementType ===
+                  "SALE" &&
+                  availableSaleStock !==
+                  null
+                  ? availableSaleStock
+                  : undefined
+              }
               placeholder="Quantity"
               value={
                 movementForm.quantity
@@ -2095,9 +2271,86 @@ function App() {
             <button
               type="submit"
               className="primary-button"
+              disabled={
+                loading ||
+                saleExceedsStock
+              }
             >
               Record Movement
             </button>
+
+            {/* ==================================================
+                STOCK INFORMATION
+               ================================================== */}
+
+            {selectedProduct && (
+              <small
+                style={{
+                  gridColumn:
+                    "1 / -1",
+                  color:
+                    saleExceedsStock
+                      ? "#dc2626"
+                      : movementForm.movementType ===
+                        "SALE"
+                        ? "#16a34a"
+                        : "#2563eb",
+                  fontWeight:
+                    "600",
+                  lineHeight:
+                    "1.6",
+                }}
+              >
+                <strong>
+                  {
+                    selectedProduct.name
+                  }
+                </strong>{" "}
+                — Current Stock:{" "}
+                <strong>
+                  {
+                    selectedProduct.quantity
+                  }{" "}
+                  units
+                </strong>
+
+                {movementForm.movementType ===
+                  "SALE" && (
+                    <>
+                      <br />
+
+                      Maximum sale:{" "}
+                      <strong>
+                        {
+                          selectedProduct.quantity
+                        }{" "}
+                        units
+                      </strong>
+
+                      {saleExceedsStock && (
+                        <>
+                          <br />
+
+                          ⚠️ Sale quantity
+                          exceeds available
+                          stock.
+                        </>
+                      )}
+                    </>
+                  )}
+
+                {movementForm.movementType ===
+                  "PURCHASE" && (
+                    <>
+                      <br />
+
+                      Purchase will increase
+                      the current inventory
+                      level.
+                    </>
+                  )}
+              </small>
+            )}
           </form>
         </div>
 
@@ -2111,7 +2364,8 @@ function App() {
             transaction data
           </p>
 
-          {movements.length === 0 ? (
+          {movements.length ===
+            0 ? (
             <p>
               No stock movements
               found.
@@ -2231,7 +2485,8 @@ function App() {
           </button>
         </div>
 
-        {alerts.length === 0 ? (
+        {alerts.length ===
+          0 ? (
           <div className="empty-state">
             <h3>
               ✓ No Active Inventory
@@ -3069,6 +3324,7 @@ function App() {
                 className="refresh-button"
                 onClick={() => {
                   resetSupplierForm();
+
                   setMessage(
                     "Edit cancelled."
                   );
@@ -3192,6 +3448,7 @@ function App() {
                 className="refresh-button"
                 onClick={() => {
                   resetSupplierForm();
+
                   setMessage(
                     "Edit cancelled."
                   );
@@ -3221,7 +3478,8 @@ function App() {
             </span>
           </div>
 
-          {suppliers.length === 0 ? (
+          {suppliers.length ===
+            0 ? (
             <div className="empty-state">
               <h3>
                 No Suppliers Found
@@ -3239,11 +3497,15 @@ function App() {
                   <tr>
                     <th>ID</th>
                     <th>Supplier</th>
-                    <th>Contact Person</th>
+                    <th>
+                      Contact Person
+                    </th>
                     <th>Email</th>
                     <th>Phone</th>
                     <th>Address</th>
-                    <th>Lead Time</th>
+                    <th>
+                      Lead Time
+                    </th>
                     <th>Status</th>
                     <th>Action</th>
                   </tr>
@@ -3395,11 +3657,6 @@ function App() {
 
   return (
     <div className="app">
-
-      {/* ======================================================
-          SIDEBAR
-         ====================================================== */}
-
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-icon">
@@ -3430,10 +3687,6 @@ function App() {
           </small>
         </div>
       </aside>
-
-      {/* ======================================================
-          MAIN CONTENT
-         ====================================================== */}
 
       <main className="main-content">
         <header className="topbar">
@@ -3506,7 +3759,8 @@ function RecommendationCard({
 }) {
   const currentStock =
     Number(
-      recommendation.currentStock || 0
+      recommendation.currentStock ||
+      0
     );
 
   const maximumStock =
@@ -3530,7 +3784,6 @@ function RecommendationCard({
 
   return (
     <div className="recommendation-card">
-
       <div className="recommendation-header">
         <div>
           <h3>
@@ -3674,7 +3927,9 @@ function RecommendationCard({
 
       <button
         className="primary-button full-width"
-        onClick={onViewDetails}
+        onClick={
+          onViewDetails
+        }
       >
         View Smart Calculation
       </button>
@@ -3682,4 +3937,4 @@ function RecommendationCard({
   );
 }
 
-export default App; 
+export default App;

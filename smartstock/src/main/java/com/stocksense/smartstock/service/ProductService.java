@@ -30,10 +30,161 @@ public class ProductService {
         }
 
         // =========================================================
+        // VALIDATION
+        // =========================================================
+
+        private void validateProduct(Product product) {
+
+                if (product == null) {
+                        throw new IllegalArgumentException(
+                                        "Product data cannot be null.");
+                }
+
+                // ---------------------------------------------------------
+                // NAME
+                // ---------------------------------------------------------
+
+                if (product.getName() == null
+                                || product.getName().trim().isEmpty()) {
+
+                        throw new IllegalArgumentException(
+                                        "Product name cannot be blank.");
+                }
+
+                // ---------------------------------------------------------
+                // SKU
+                // ---------------------------------------------------------
+
+                if (product.getSku() == null
+                                || product.getSku().trim().isEmpty()) {
+
+                        throw new IllegalArgumentException(
+                                        "Product SKU cannot be blank.");
+                }
+
+                // ---------------------------------------------------------
+                // PRICE
+                // ---------------------------------------------------------
+
+                if (product.getPrice() != null
+                                && product.getPrice() < 0) {
+
+                        throw new IllegalArgumentException(
+                                        "Product price cannot be negative.");
+                }
+
+                // ---------------------------------------------------------
+                // QUANTITY
+                // ---------------------------------------------------------
+
+                if (product.getQuantity() != null
+                                && product.getQuantity() < 0) {
+
+                        throw new IllegalArgumentException(
+                                        "Product quantity cannot be negative.");
+                }
+
+                // ---------------------------------------------------------
+                // LOW STOCK THRESHOLD
+                // ---------------------------------------------------------
+
+                if (product.getLowStockThreshold() != null
+                                && product.getLowStockThreshold() < 0) {
+
+                        throw new IllegalArgumentException(
+                                        "Low stock threshold cannot be negative.");
+                }
+
+                // ---------------------------------------------------------
+                // REORDER LEVEL
+                // ---------------------------------------------------------
+
+                if (product.getReorderLevel() != null
+                                && product.getReorderLevel() < 0) {
+
+                        throw new IllegalArgumentException(
+                                        "Reorder level cannot be negative.");
+                }
+
+                // ---------------------------------------------------------
+                // LEAD TIME
+                // ---------------------------------------------------------
+
+                if (product.getLeadTimeDays() != null
+                                && product.getLeadTimeDays() < 0) {
+
+                        throw new IllegalArgumentException(
+                                        "Lead time days cannot be negative.");
+                }
+
+                // ---------------------------------------------------------
+                // SAFETY STOCK
+                // ---------------------------------------------------------
+
+                if (product.getSafetyStock() != null
+                                && product.getSafetyStock() < 0) {
+
+                        throw new IllegalArgumentException(
+                                        "Safety stock cannot be negative.");
+                }
+
+                // ---------------------------------------------------------
+                // MINIMUM ORDER QUANTITY
+                // ---------------------------------------------------------
+
+                if (product.getMinimumOrderQuantity() != null
+                                && product.getMinimumOrderQuantity() < 0) {
+
+                        throw new IllegalArgumentException(
+                                        "Minimum order quantity cannot be negative.");
+                }
+
+                // ---------------------------------------------------------
+                // MAXIMUM STOCK LEVEL
+                // ---------------------------------------------------------
+
+                if (product.getMaximumStockLevel() != null
+                                && product.getMaximumStockLevel() < 0) {
+
+                        throw new IllegalArgumentException(
+                                        "Maximum stock level cannot be negative.");
+                }
+
+                // ---------------------------------------------------------
+                // BUSINESS RULE:
+                // REORDER LEVEL CANNOT EXCEED MAXIMUM STOCK
+                // ---------------------------------------------------------
+
+                if (product.getReorderLevel() != null
+                                && product.getMaximumStockLevel() != null
+                                && product.getReorderLevel() > product.getMaximumStockLevel()) {
+
+                        throw new IllegalArgumentException(
+                                        "Reorder level cannot exceed maximum stock level.");
+                }
+
+                // ---------------------------------------------------------
+                // BUSINESS RULE:
+                // MINIMUM ORDER QUANTITY CANNOT EXCEED MAXIMUM STOCK
+                // ---------------------------------------------------------
+
+                if (product.getMinimumOrderQuantity() != null
+                                && product.getMaximumStockLevel() != null
+                                && product.getMinimumOrderQuantity() > product.getMaximumStockLevel()) {
+
+                        throw new IllegalArgumentException(
+                                        "Minimum order quantity cannot exceed maximum stock level.");
+                }
+        }
+
+        // =========================================================
         // ADD PRODUCT
         // =========================================================
 
         public Product addProduct(Product product) {
+
+                validateProduct(product);
+
                 return productRepository.save(product);
         }
 
@@ -42,6 +193,7 @@ public class ProductService {
         // =========================================================
 
         public List<Product> getAllProducts() {
+
                 return productRepository.findAll();
         }
 
@@ -50,6 +202,13 @@ public class ProductService {
         // =========================================================
 
         public Optional<Product> getProductById(Long id) {
+
+                if (id == null || id <= 0) {
+
+                        throw new IllegalArgumentException(
+                                        "Product ID must be a positive number.");
+                }
+
                 return productRepository.findById(id);
         }
 
@@ -61,14 +220,32 @@ public class ProductService {
                         Long id,
                         Product updatedProduct) {
 
-                Product existingProduct = productRepository.findById(id)
-                                .orElseThrow(() -> new RuntimeException("Product not found"));
+                if (id == null || id <= 0) {
 
-                existingProduct.setName(updatedProduct.getName());
-                existingProduct.setSku(updatedProduct.getSku());
-                existingProduct.setDescription(updatedProduct.getDescription());
-                existingProduct.setPrice(updatedProduct.getPrice());
-                existingProduct.setQuantity(updatedProduct.getQuantity());
+                        throw new IllegalArgumentException(
+                                        "Product ID must be a positive number.");
+                }
+
+                validateProduct(updatedProduct);
+
+                Product existingProduct = productRepository.findById(id)
+                                .orElseThrow(() -> new IllegalArgumentException(
+                                                "Product not found with id: " + id));
+
+                existingProduct.setName(
+                                updatedProduct.getName());
+
+                existingProduct.setSku(
+                                updatedProduct.getSku());
+
+                existingProduct.setDescription(
+                                updatedProduct.getDescription());
+
+                existingProduct.setPrice(
+                                updatedProduct.getPrice());
+
+                existingProduct.setQuantity(
+                                updatedProduct.getQuantity());
 
                 existingProduct.setLowStockThreshold(
                                 updatedProduct.getLowStockThreshold());
@@ -88,16 +265,28 @@ public class ProductService {
                 existingProduct.setMaximumStockLevel(
                                 updatedProduct.getMaximumStockLevel());
 
+                // ---------------------------------------------------------
+                // SUPPLIER
+                // ---------------------------------------------------------
+
                 /*
-                 * Preserve supplier relationship when the updated
-                 * product contains a supplier.
+                 * Preserve the existing supplier relationship when
+                 * the update request does not contain a supplier.
+                 *
+                 * When a supplier ID is provided, verify that the
+                 * supplier exists before assigning it.
                  */
+
                 if (updatedProduct.getSupplier() != null
                                 && updatedProduct.getSupplier().getId() != null) {
 
                         Supplier supplier = supplierRepository
                                         .findById(updatedProduct.getSupplier().getId())
-                                        .orElseThrow(() -> new RuntimeException("Supplier not found"));
+                                        .orElseThrow(() -> new IllegalArgumentException(
+                                                        "Supplier not found with id: "
+                                                                        + updatedProduct
+                                                                                        .getSupplier()
+                                                                                        .getId()));
 
                         existingProduct.setSupplier(supplier);
                 }
@@ -113,11 +302,27 @@ public class ProductService {
                         Long productId,
                         Long supplierId) {
 
+                if (productId == null || productId <= 0) {
+
+                        throw new IllegalArgumentException(
+                                        "Product ID must be a positive number.");
+                }
+
+                if (supplierId == null || supplierId <= 0) {
+
+                        throw new IllegalArgumentException(
+                                        "Supplier ID must be a positive number.");
+                }
+
                 Product product = productRepository.findById(productId)
-                                .orElseThrow(() -> new RuntimeException("Product not found"));
+                                .orElseThrow(() -> new IllegalArgumentException(
+                                                "Product not found with id: "
+                                                                + productId));
 
                 Supplier supplier = supplierRepository.findById(supplierId)
-                                .orElseThrow(() -> new RuntimeException("Supplier not found"));
+                                .orElseThrow(() -> new IllegalArgumentException(
+                                                "Supplier not found with id: "
+                                                                + supplierId));
 
                 product.setSupplier(supplier);
 
@@ -129,6 +334,9 @@ public class ProductService {
         // =========================================================
 
         public Product saveProduct(Product product) {
+
+                validateProduct(product);
+
                 return productRepository.save(product);
         }
 
@@ -137,6 +345,19 @@ public class ProductService {
         // =========================================================
 
         public void deleteProduct(Long id) {
+
+                if (id == null || id <= 0) {
+
+                        throw new IllegalArgumentException(
+                                        "Product ID must be a positive number.");
+                }
+
+                if (!productRepository.existsById(id)) {
+
+                        throw new IllegalArgumentException(
+                                        "Product not found with id: " + id);
+                }
+
                 productRepository.deleteById(id);
         }
 
@@ -178,6 +399,7 @@ public class ProductService {
                                         .intValue();
 
                         if (currentStock <= effectiveReorderPoint) {
+
                                 recommendations.add(replenishment);
                         }
                 }
@@ -192,8 +414,16 @@ public class ProductService {
         public Map<String, Object> getSmartReplenishment(
                         Long productId) {
 
+                if (productId == null || productId <= 0) {
+
+                        throw new IllegalArgumentException(
+                                        "Product ID must be a positive number.");
+                }
+
                 Product product = productRepository.findById(productId)
-                                .orElseThrow(() -> new RuntimeException("Product not found"));
+                                .orElseThrow(() -> new IllegalArgumentException(
+                                                "Product not found with id: "
+                                                                + productId));
 
                 // =====================================================
                 // INVENTORY VALUES
@@ -230,7 +460,8 @@ public class ProductService {
                 Supplier supplier = product.getSupplier();
 
                 boolean supplierAvailable = supplier != null
-                                && Boolean.TRUE.equals(supplier.getActive());
+                                && Boolean.TRUE.equals(
+                                                supplier.getActive());
 
                 Integer supplierLeadTimeDays = supplier != null
                                 ? supplier.getLeadTimeDays()
@@ -240,12 +471,9 @@ public class ProductService {
                  * Effective lead time:
                  *
                  * 1. Use active supplier lead time when available.
-                 * 2. Otherwise fall back to product lead time.
-                 *
-                 * This makes replenishment genuinely supplier-aware
-                 * while still allowing products without an active
-                 * supplier to use their own configured lead time.
+                 * 2. Otherwise use product lead time.
                  */
+
                 int effectiveLeadTimeDays = productLeadTimeDays;
 
                 if (supplierAvailable
@@ -259,8 +487,8 @@ public class ProductService {
                 // DEMAND ANALYSIS
                 // =====================================================
 
-                double averageDailyDemand = stockMovementService.getAverageDailyDemand(
-                                productId);
+                double averageDailyDemand = stockMovementService
+                                .getAverageDailyDemand(productId);
 
                 // =====================================================
                 // LEAD TIME DEMAND
@@ -273,8 +501,7 @@ public class ProductService {
                 // DEMAND-BASED REORDER POINT
                 // =====================================================
 
-                double demandBasedReorderPoint = leadTimeDemand
-                                + safetyStock;
+                double demandBasedReorderPoint = leadTimeDemand + safetyStock;
 
                 // =====================================================
                 // EFFECTIVE REORDER POINT
@@ -288,15 +515,9 @@ public class ProductService {
                 // TARGET STOCK
                 // =====================================================
 
-                /*
-                 * Target stock is based on the effective reorder point
-                 * rather than only the manually configured reorder level.
-                 *
-                 * This ensures that demand and lead-time intelligence
-                 * actually influences the replenishment target.
-                 */
                 int targetStock = (int) Math.ceil(
-                                effectiveReorderPoint + safetyStock);
+                                effectiveReorderPoint
+                                                + safetyStock);
 
                 if (maximumStockLevel > 0) {
 
@@ -333,6 +554,7 @@ public class ProductService {
                         int maximumAllowedOrder = maximumStockLevel - currentStock;
 
                         if (maximumAllowedOrder < 0) {
+
                                 maximumAllowedOrder = 0;
                         }
 
@@ -539,7 +761,6 @@ public class ProductService {
                                 reason = "Current stock has reached zero.";
 
                                 recommendedAction = "Place an immediate replenishment order.";
-
                         }
 
                         // =================================================
@@ -555,15 +776,13 @@ public class ProductService {
                                 reason = "Current stock is below the effective reorder point.";
 
                                 recommendedAction = "Place a replenishment order.";
-
                         }
 
                         // =================================================
                         // MEDIUM — MONITOR
                         // =================================================
 
-                        else if (currentStock <= effectiveReorderPoint
-                                        + safetyStock) {
+                        else if (currentStock <= effectiveReorderPoint + safetyStock) {
 
                                 severity = "MEDIUM";
 
@@ -671,6 +890,7 @@ public class ProductService {
                 List<Product> products = productRepository.findAll();
 
                 double totalInventoryValue = 0.0;
+
                 int totalUnits = 0;
 
                 for (Product product : products) {
@@ -683,8 +903,7 @@ public class ProductService {
 
                         if (product.getPrice() != null) {
 
-                                price = ((Number) product.getPrice())
-                                                .doubleValue();
+                                price = product.getPrice().doubleValue();
                         }
 
                         totalUnits += quantity;
@@ -739,11 +958,12 @@ public class ProductService {
 
                         if (product.getPrice() != null) {
 
-                                price = ((Number) product.getPrice())
-                                                .doubleValue();
+                                price = product.getPrice().doubleValue();
                         }
 
-                        // Current inventory value
+                        // -------------------------------------------------
+                        // CURRENT INVENTORY VALUE
+                        // -------------------------------------------------
 
                         double currentValue = quantity * price;
 
@@ -751,7 +971,9 @@ public class ProductService {
 
                         totalUnits += quantity;
 
-                        // Potential value at maximum stock
+                        // -------------------------------------------------
+                        // POTENTIAL VALUE
+                        // -------------------------------------------------
 
                         if (maximumStock > 0) {
 
@@ -762,18 +984,25 @@ public class ProductService {
                                 totalPotentialValue += currentValue;
                         }
 
-                        // Stock statistics
+                        // -------------------------------------------------
+                        // STOCK STATISTICS
+                        // -------------------------------------------------
 
                         if (quantity == 0) {
 
                                 outOfStockCount++;
 
                         } else if (product.getLowStockThreshold() != null
-                                        && quantity <= product.getLowStockThreshold()) {
+                                        && quantity <= product
+                                                        .getLowStockThreshold()) {
 
                                 lowStockCount++;
                         }
                 }
+
+                // -----------------------------------------------------
+                // AVERAGE PRODUCT VALUE
+                // -----------------------------------------------------
 
                 if (!products.isEmpty()) {
 
@@ -781,10 +1010,18 @@ public class ProductService {
                                         / products.size();
                 }
 
+                // -----------------------------------------------------
+                // INVENTORY GAP
+                // -----------------------------------------------------
+
                 double inventoryGapValue = Math.max(
                                 0.0,
                                 totalPotentialValue
                                                 - totalInventoryValue);
+
+                // -----------------------------------------------------
+                // RESPONSE
+                // -----------------------------------------------------
 
                 Map<String, Object> result = new HashMap<>();
 
