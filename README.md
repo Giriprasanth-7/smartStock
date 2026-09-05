@@ -404,11 +404,11 @@ Possible future improvements include:
 
 ## 👨‍💻 Author
 
-**GiriPrasanth07**
+**Giriprasanth-7**
 
 Information Technology Student
 
-GitHub: **https://github.com/GiriPrasanth07**
+GitHub: **https://github.com/Giriprasanth-7**
 
 ---
 
